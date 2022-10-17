@@ -1,0 +1,168 @@
+<html>
+<head>
+<title>main.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #808080;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #cc7832;}
+.s3 { color: #6a8759;}
+.s4 { color: #6897bb;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+main.py</font>
+</center></td></tr></table>
+<pre><span class="s0"># Script para automatizar a prestação de contas do Empresa Cidadã</span>
+
+<span class="s2">import </span><span class="s1">fitz</span>
+<span class="s2">from </span><span class="s1">os </span><span class="s2">import </span><span class="s1">listdir</span>
+<span class="s2">from </span><span class="s1">os.path </span><span class="s2">import </span><span class="s1">isfile</span><span class="s2">, </span><span class="s1">join</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">from </span><span class="s1">tabulate </span><span class="s2">import </span><span class="s1">tabulate</span>
+
+<span class="s2">def </span><span class="s1">ocr_checker(pdf): </span><span class="s0">#Abre o pdf, checa se ele tem OCR, passa se precisar, e chama a função seguinte.</span>
+    <span class="s2">pass</span>
+
+<span class="s2">def </span><span class="s1">ec_tipo_dct_bruta(pdf): </span><span class="s0">#Identifica se o documento é GFIP ou FGTS e chama a função adequada.</span>
+    <span class="s1">documento = fitz.open(pdf)</span>
+    <span class="s1">documento_txt = </span><span class="s3">''</span>
+    <span class="s1">tipo_documento = </span><span class="s3">'Não sei que documento é esse.'</span>
+    <span class="s1">lista_possibilidades = [</span><span class="s3">'RELAÇÃO DOS TRABALHADORES CONSTANTES NO ARQUIVO SEFIP'</span><span class="s2">,</span>
+    <span class="s3">'Extrato de Conta do Fundo de Garantia'</span><span class="s2">, </span><span class="s3">'FGTS - EXTRATO ANALITICO DO TRABALHADOR'</span><span class="s2">,</span>
+    <span class="s3">'Para uso da Caixa:'</span><span class="s1">]</span>
+    <span class="s2">for </span><span class="s1">pagina </span><span class="s2">in </span><span class="s1">documento:</span>
+        <span class="s1">documento_txt += pagina.get_text()</span>
+    <span class="s2">if </span><span class="s1">lista_possibilidades[</span><span class="s4">0</span><span class="s1">] </span><span class="s2">in </span><span class="s1">documento_txt:</span>
+        <span class="s1">tipo_documento = </span><span class="s3">'GFIP'</span>
+        <span class="s2">return </span><span class="s1">ec_gfip(pdf)</span>
+    <span class="s2">elif </span><span class="s1">lista_possibilidades[</span><span class="s4">0</span><span class="s1">] </span><span class="s2">not in </span><span class="s1">documento_txt:</span>
+        <span class="s2">for </span><span class="s1">possibilidade </span><span class="s2">in </span><span class="s1">lista_possibilidades:</span>
+            <span class="s2">if </span><span class="s1">possibilidade </span><span class="s2">in </span><span class="s1">documento_txt:</span>
+                <span class="s1">tipo_documento = </span><span class="s3">'FGTS'</span>
+                <span class="s2">return </span><span class="s1">ec_fgts(pdf)</span>
+        <span class="s2">else</span><span class="s1">:</span>
+            <span class="s2">return </span><span class="s1">tipo_documento</span>
+
+<span class="s2">def </span><span class="s1">ec_gfip(pdf): </span><span class="s0">#Verifica a competência da GFIP e o número de funcionários no mês.</span>
+    <span class="s1">gfip = fitz.open(pdf)</span>
+    <span class="s1">pagina_buscada = </span><span class="s3">''</span>
+    <span class="s2">for </span><span class="s1">pagina </span><span class="s2">in </span><span class="s1">gfip:</span>
+        <span class="s2">if </span><span class="s3">&quot;RELAÇÃO DOS TRABALHADORES&quot; </span><span class="s2">in </span><span class="s1">pagina.get_text() \</span>
+                <span class="s2">and </span><span class="s3">&quot;RESUMO DO FECHAMENTO - EMPRESA&quot; </span><span class="s2">not in </span><span class="s1">pagina.get_text():</span>
+            <span class="s1">pagina_buscada += pagina.get_text()</span>
+    <span class="s1">lista_buscada = pagina_buscada.split(</span><span class="s3">'</span><span class="s2">\n</span><span class="s3">'</span><span class="s1">)</span>
+    <span class="s1">funcionários = </span><span class="s4">0</span>
+    <span class="s2">for </span><span class="s1">info </span><span class="s2">in </span><span class="s1">lista_buscada:</span>
+        <span class="s2">if </span><span class="s3">'COMP' </span><span class="s2">in </span><span class="s1">info:</span>
+            <span class="s1">competência = info</span>
+        <span class="s2">if </span><span class="s1">info == </span><span class="s3">'01'</span><span class="s1">:</span>
+            <span class="s1">funcionários +=</span><span class="s4">1</span>
+    <span class="s2">return </span><span class="s3">f'GFIP: </span><span class="s2">{</span><span class="s1">competência[</span><span class="s4">9</span><span class="s1">:</span><span class="s4">13</span><span class="s1">]</span><span class="s2">}</span><span class="s3">: </span><span class="s2">{</span><span class="s1">competência</span><span class="s2">} </span><span class="s3">/ Funcionários: </span><span class="s2">{</span><span class="s1">funcionários</span><span class="s2">}</span><span class="s3">'</span>
+
+<span class="s2">def </span><span class="s1">ec_fgts(pdf): </span><span class="s0"># Verifica os depósitos de FGTS</span>
+    <span class="s1">lista_fgts = []</span>
+    <span class="s1">lista_anos = [</span><span class="s3">'2020'</span><span class="s2">,</span><span class="s3">'2021'</span><span class="s1">]</span>
+    <span class="s1">lista_deposito = [</span><span class="s3">'JANEIRO'</span><span class="s2">, </span><span class="s3">'FEVEREIRO'</span><span class="s2">, </span><span class="s3">'MARCO'</span><span class="s2">, </span><span class="s3">'ABRIL'</span><span class="s2">, </span><span class="s3">'MAIO'</span><span class="s2">, </span><span class="s3">'JUNHO'</span><span class="s2">,</span>
+                          <span class="s3">'JULHO'</span><span class="s2">, </span><span class="s3">'AGOSTO'</span><span class="s2">, </span><span class="s3">'SETEMBRO'</span><span class="s2">, </span><span class="s3">'OUTUBRO'</span><span class="s2">, </span><span class="s3">'NOVEMBRO'</span><span class="s2">, </span><span class="s3">'DEZEMBRO'</span><span class="s1">]</span>
+    <span class="s1">fgts = fitz.open(pdf)</span>
+    <span class="s1">fgts_txt = </span><span class="s3">''</span>
+    <span class="s2">for </span><span class="s1">pagina </span><span class="s2">in </span><span class="s1">fgts:</span>
+        <span class="s1">fgts_txt += pagina.get_text()</span>
+    <span class="s2">for </span><span class="s1">ano </span><span class="s2">in </span><span class="s1">lista_anos:</span>
+        <span class="s2">for </span><span class="s1">competência </span><span class="s2">in </span><span class="s1">lista_deposito:</span>
+            <span class="s1">deposito_barra = </span><span class="s3">f'DEPOSITO </span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">'</span>
+            <span class="s1">deposito_sem_barra = </span><span class="s3">f'DEPOSITO </span><span class="s2">{</span><span class="s1">competência</span><span class="s2">} {</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">'</span>
+            <span class="s1">atraso_barra = </span><span class="s3">f'DEPOSITO EM ATRASO </span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">'</span>
+            <span class="s1">atraso_sem_barra = </span><span class="s3">f'DEPOSITO EM ATRASO </span><span class="s2">{</span><span class="s1">competência</span><span class="s2">} {</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">'</span>
+            <span class="s2">if </span><span class="s1">deposito_barra </span><span class="s2">in </span><span class="s1">fgts_txt:</span>
+                <span class="s1">lista_fgts.append(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">: OK'</span><span class="s1">)</span>
+            <span class="s2">elif </span><span class="s1">deposito_sem_barra </span><span class="s2">in </span><span class="s1">fgts_txt:</span>
+                <span class="s1">lista_fgts.append(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">: OK'</span><span class="s1">)</span>
+            <span class="s2">elif </span><span class="s1">atraso_barra </span><span class="s2">in </span><span class="s1">fgts_txt:</span>
+                <span class="s1">lista_fgts.append(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">: OK'</span><span class="s1">)</span>
+            <span class="s2">elif </span><span class="s1">atraso_sem_barra </span><span class="s2">in </span><span class="s1">fgts_txt:</span>
+                <span class="s1">lista_fgts.append(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">: OK'</span><span class="s1">)</span>
+            <span class="s2">else</span><span class="s1">:</span>
+                <span class="s1">lista_fgts.append(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">competência</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">ano</span><span class="s2">}</span><span class="s3">: FALTA'</span><span class="s1">)</span>
+    <span class="s1">df_fgts = pd.DataFrame(lista_fgts</span><span class="s2">, </span><span class="s1">columns = [</span><span class="s3">'FGTS'</span><span class="s1">])</span>
+    <span class="s2">return </span><span class="s1">df_fgts</span>
+
+<span class="s2">def </span><span class="s1">ec_pasta(caminho): </span><span class="s0">#Abre todos os arquivos contidos na pasta do caminho indicado como argumento.</span>
+    <span class="s1">arquivos_buscados = [arquivo </span><span class="s2">for </span><span class="s1">arquivo </span><span class="s2">in </span><span class="s1">listdir(caminho)]</span>
+    <span class="s1">resultados_fgts = pd.DataFrame()</span>
+    <span class="s1">resultados_gfip = []</span>
+    <span class="s2">for </span><span class="s1">arquivo </span><span class="s2">in </span><span class="s1">arquivos_buscados:</span>
+        <span class="s1">resultado = ec_tipo_dct_bruta(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">caminho</span><span class="s2">}</span><span class="s3">/</span><span class="s2">{</span><span class="s1">arquivo</span><span class="s2">}</span><span class="s3">'</span><span class="s1">)</span>
+        <span class="s2">if </span><span class="s3">'FGTS' </span><span class="s2">in </span><span class="s1">resultado:</span>
+            <span class="s1">resultados_fgts[arquivo]= resultado</span>
+        <span class="s2">elif </span><span class="s3">'GFIP' </span><span class="s2">in </span><span class="s1">resultado:</span>
+            <span class="s1">resultados_gfip.append(resultado)</span>
+    <span class="s1">resultados_gfip_ordem = sorted(resultados_gfip)</span>
+    <span class="s2">with </span><span class="s1">open(</span><span class="s3">r'C:\Users\Vitor\Desktop\Vítor\SMF\EC - Prestação de Contas\resultado.txt'</span><span class="s2">, </span><span class="s3">'w'</span><span class="s1">) </span><span class="s2">as </span><span class="s1">arquivo:</span>
+        <span class="s1">arquivo.write(</span><span class="s3">'GFIPs encontradas:</span><span class="s2">\n</span><span class="s3">'</span><span class="s1">)</span>
+        <span class="s1">total_gfips = </span><span class="s4">0</span>
+        <span class="s2">for </span><span class="s1">comp </span><span class="s2">in </span><span class="s1">resultados_gfip_ordem:</span>
+            <span class="s1">arquivo.write(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">comp</span><span class="s2">}\n</span><span class="s3">'</span><span class="s1">)</span>
+            <span class="s1">total_gfips +=</span><span class="s4">1</span>
+        <span class="s1">arquivo.write(</span><span class="s3">f'Total de competências encontradas: </span><span class="s2">{</span><span class="s1">total_gfips</span><span class="s2">}\n</span><span class="s3">'</span><span class="s1">)</span>
+        <span class="s1">arquivo.write(</span><span class="s3">'</span><span class="s2">\n</span><span class="s3">'</span><span class="s1">)</span>
+        <span class="s1">arquivo.write(</span><span class="s3">'FGTS recolhidos:</span><span class="s2">\n</span><span class="s3">'</span><span class="s1">)</span>
+        <span class="s1">arquivo.write(resultados_fgts.to_markdown())</span>
+
+<span class="s2">def </span><span class="s1">ec_input_dados():</span>
+    <span class="s1">solicitante = input(</span><span class="s3">'Solicitante: '</span><span class="s1">)</span>
+    <span class="s1">CNPJ = input(</span><span class="s3">'CNPJ: '</span><span class="s1">)</span>
+    <span class="s1">protocolo = input(</span><span class="s3">'Protocolo: '</span><span class="s1">)</span>
+    <span class="s1">caminho = input(</span><span class="s3">'Caminho: '</span><span class="s1">)</span>
+    <span class="s1">cabeçalho = </span><span class="s3">f'</span><span class="s2">{</span><span class="s1">solicitante</span><span class="s2">} </span><span class="s3">/ </span><span class="s2">{</span><span class="s1">CNPJ</span><span class="s2">} </span><span class="s3">/ </span><span class="s2">{</span><span class="s1">protocolo</span><span class="s2">}</span><span class="s3">'</span>
+    <span class="s2">with </span><span class="s1">open(</span><span class="s3">r'C:\Users\Vitor\Desktop\Vítor\SMF\EC - Prestação de Contas\resultado.txt'</span><span class="s2">,</span><span class="s3">'w'</span><span class="s1">) </span><span class="s2">as </span><span class="s1">arquivo:</span>
+        <span class="s1">arquivo.write(</span><span class="s3">f'</span><span class="s2">{</span><span class="s1">cabeçalho</span><span class="s2">}\n</span><span class="s3">'</span><span class="s1">)</span>
+    <span class="s1">ec_pasta(caminho)</span>
+
+
+
+
+<span class="s1">ec_input_dados()</span>
+<span class="s0">#ec_pasta(r'C:\Users\Vitor\Desktop\Vítor\SMF\EC - Prestação de Contas')</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</body>
+</html>
